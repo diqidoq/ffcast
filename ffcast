@@ -1,0 +1,85 @@
+#!/bin/bash
+
+Name_to_here="$(basename "$(readlink -f "$0")")"
+Path_to_here="$(dirname "$(readlink -f "$0")")"
+Path_to_config_dir="$Path_to_here"
+config="$Path_to_config_dir/$Name_to_here.cfg"
+log_file="$Path_to_config_dir/$Name_to_here.log"
+touch $log_file
+source "$config"
+
+Help(){
+cat << EOF
+$Name_to_here  - Copyright (C) 2017 diqidoq - GPL v3
+is a free simple screencast command line tool based on FFmpeg.
+
+This program comes with ABSOLUTELY NO WARRANTY.
+This is free software, and you are welcome to redistribute it
+under certain conditions of GPL v3 by crediting the original author
+
+How to use (Terminal commands):
+-------------------------------
+  $Name_to_here <path/to/filename>      record screen to file (name) - file ending automatically.
+  $Name_to_here without arguments       play music from terminal position in path recursively
+  $Name_to_here -s |--setup             set up an audio output driver ($output_list)
+  $Name_to_here -h | --help             Show this help.
+  $Name_to_here -p | --playlist         Play playlist m3u file, like set up in playa.cfg with playa -s.
+
+! Press 'CTRL+C' to simply quit the record.
+! Skipping not supported yet (@TODO).
+
+EOF
+}
+
+ErrMissingDep(){
+cat << EOF
+Your system does not has FFmpeg installed to run this program.
+PLease follow the *First steps* and *installation guidelines* of $Name_to_here at github.com/diqidoq/$Name_to_here.
+EOF
+    Help
+    exit 1
+}
+
+case "$1" in
+
+	-h|--help|'')
+		Help
+		exit 1
+	;;
+	-s|--setup)
+    # @TODO set up of file formats, framerate and resolution.
+		exit 1
+	;;
+	*)
+		if hash ffmpeg 2>/dev/null ; then
+      read -p "Start recording screen to file $1? (y/n): " YN
+      if [[ "$YN" == "y" ]] ; then
+        # https://www.ffmpeg.org/ffmpeg-devices.html#x11grab
+        # https://developers.google.com/media/vp9/settings/vod/
+        # https://trac.ffmpeg.org/wiki/Encode/VP9
+        # https://developer.mozilla.org/en-US/docs/Web/HTML/Supported_media_formats
+        # https://trac.ffmpeg.org/wiki/Capture/Desktop
+			 ffmpeg -f x11grab -follow_mouse ${follow_mouse} -show_region ${show_region} -framerate ${framerate} -video_size ${video_size} -i :0.0 $1.mp4 || break
+       read -p "Convert now to webm ... (y/n): " YN
+       if [[ "$YN" == "y" ]] ; then
+         ffmpeg -i $1.mp4 -c:v libvpx-vp9 -r ${framerate} -b:v 200k -an $1.webm
+         exit 1
+       else
+         echo "Quit now ..."
+         exit 1
+       fi
+     else
+       echo "Quit now ..."
+       exit 1
+     fi
+		else
+			ErrMissingDep
+			exit 1
+		fi
+
+		printf \\n
+		exit 1
+	;;
+esac
+
+exit 0
